@@ -1,1 +1,81 @@
-File for initial prompt with basic functionality and UI/UX description
+Шаг 1. Каркас
+Создай Python FastAPI проект для учебного MVP ai-triage-lab.
+
+Требования:
+- основной endpoint POST /triage
+- Pydantic-схемы для request/response
+- SQLite база
+- структура проекта: app/main.py, app/schemas.py, app/db.py, app/config.py
+- .env.example
+- requirements.txt
+- README.md с локальным запуском
+
+Пока без LLM. Сделай mock-классификатор по ключевым словам:
+billing/support/complaint/other.
+
+Шаг 2. Аудит
+Добавь SQLite-аудит для каждого POST /triage.
+
+Таблица tickets:
+id, created_at, client_id, channel, text,
+category, confidence, escalate, draft_reply, error.
+
+Каждый запрос должен сохраняться в БД, включая fallback-случаи.
+Добавь scripts/inspect_db.py, который выводит последние 10 записей.
+
+Шаг 3. Rate limit
+Добавь простое лимитирование: не больше RATE_LIMIT_PER_MINUTE запросов в минуту на client_id.
+
+Используй SQLite-таблицу rate_limits или простой модуль app/rate_limit.py.
+При превышении лимита возвращай HTTP 429.
+Параметр лимита бери из env.
+Добавь тест или ручной пример проверки.
+Шаг 4. LLM Yandex Alice
+Добавь app/llm.py с поддержкой LLM_PROVIDER=aliceai-llm|mock|broken.
+
+Для Yandex aliceai-llm:
+- использовать  из env: YANDEX_CLOUD_FOLDER, YANDEX_CLOUD_API_KEY
+- model брать из env: YANDEX_CLOUD_MODEL
+- temperature 0.2
+- требовать строгий JSON-ответ по схеме:
+  category: billing/support/complaint/other
+  draft_reply: string
+  confidence: high/medium/low
+  escalate: boolean
+
+Если модель недоступна, вернула ошибку или невалидный формат:
+- category=other
+- confidence=low
+- escalate=true
+- draft_reply="Здравствуйте! Ваше обращение передано оператору..."
+- сохранить error в tickets.
+
+Шаг 5. Docker
+Добавь Dockerfile и docker-compose.yml.
+
+Требования:
+- приложение запускается через uvicorn
+- порт 8000
+- переменные окружения через .env
+- volume для папки data, чтобы SQLite сохранялась локально
+- README обновить командами:
+  docker compose up --build
+  curl пример для POST /triage
+
+Шаг 6. Тесты и README
+Добавь pytest-тесты:
+- успешный /triage
+- пустой text отклоняется
+- слишком длинный text отклоняется
+- LLM_PROVIDER=broken возвращает escalate=true
+- rate limit возвращает 429
+
+Обнови README:
+- описание бизнес-проблемы
+- архитектура
+- локальный запуск
+- docker запуск
+- env-переменные
+- примеры запросов для отправки через windows powershell
+- сценарий отказа
+- ограничения MVP
