@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from contextlib import asynccontextmanager
+import json
 from json import JSONDecodeError
 
 from fastapi import FastAPI, Request
@@ -15,6 +16,18 @@ from .rate_limit import check_rate_limit
 from .schemas import TriageRequest, TriageResponse
 
 
+class AsciiJSONResponse(JSONResponse):
+    """JSON-ответ с ASCII-экранированием для совместимости с терминалами."""
+
+    def render(self, content: object) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=True,
+            allow_nan=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     resolved_settings = settings or Settings.from_env()
 
@@ -23,12 +36,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         initialize_database(resolved_settings.database_path)
         yield
 
-    app = FastAPI(title="ai-triage-lab", lifespan=lifespan)
+    app = FastAPI(
+        title="ai-triage-lab",
+        lifespan=lifespan,
+        default_response_class=AsciiJSONResponse,
+    )
     app.state.settings = resolved_settings
     app.state.provider = build_provider(resolved_settings)
 
     @app.post("/triage", response_model=TriageResponse)
-    async def triage(request: Request) -> TriageResponse | JSONResponse:
+    async def triage(request: Request) -> TriageResponse | AsciiJSONResponse:
         raw_payload = await _read_json_payload(request)
         triage_request, validation_error = _validate_request(raw_payload)
         if validation_error is not None:
@@ -46,7 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     error="validation_error",
                 ),
             )
-            return JSONResponse(
+            return AsciiJSONResponse(
                 status_code=422,
                 content={"detail": "Некорректный запрос"},
             )
@@ -71,7 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         ),
                     ),
                 )
-                return JSONResponse(
+                return AsciiJSONResponse(
                     status_code=429,
                     content={"detail": "Превышен лимит запросов"},
                 )

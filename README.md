@@ -57,12 +57,60 @@ Invoke-RestMethod `
     -Body $body
 ```
 
+Если в старом PowerShell кириллица в выводе выглядит искажённо, выполните перед запросом:
+
+```powershell
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+```
+
 Если нужен именно `curl`, используйте `curl.exe`:
 
 ```powershell
 curl.exe -X POST "http://127.0.0.1:8000/triage" `
   -H "Content-Type: application/json" `
   -d "{\"client_id\":\"client-1\",\"channel\":\"email\",\"text\":\"Need billing help with my invoice\"}"
+```
+
+## Примеры по категориям
+
+### Billing
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/triage" -ContentType "application/json" -Body (@{
+    client_id = "client-billing"
+    channel   = "email"
+    text      = "Please help with billing for invoice #1042"
+} | ConvertTo-Json)
+```
+
+### Support
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/triage" -ContentType "application/json" -Body (@{
+    client_id = "client-support"
+    channel   = "chat"
+    text      = "I need support with logging into my account"
+} | ConvertTo-Json)
+```
+
+### Complaint
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/triage" -ContentType "application/json" -Body (@{
+    client_id = "client-complaint"
+    channel   = "email"
+    text      = "I am very unhappy with the recent service quality"
+} | ConvertTo-Json)
+```
+
+### Other
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/triage" -ContentType "application/json" -Body (@{
+    client_id = "client-other"
+    channel   = "chat"
+    text      = "Can you tell me your office hours?"
+} | ConvertTo-Json)
 ```
 
 ## Docker запуск
@@ -96,11 +144,40 @@ uvicorn app.main:app --reload
 
 ## Инспекция БД
 
+После тестового запроса полезно сразу посмотреть, что именно сохранилось в SQLite.
+
 Показать последние 10 записей:
 
 ```powershell
 python scripts/inspect_db.py
 ```
+
+Скрипт читает ту же БД, что указана в `DATABASE_PATH`, и выводит строки таблицы `tickets` в JSON-формате, по одной записи на строку.
+
+Пример удобной последовательности:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/triage" -ContentType "application/json" -Body (@{
+    client_id = "client-audit"
+    channel   = "email"
+    text      = "Please help with billing for invoice #1042"
+} | ConvertTo-Json)
+
+python scripts/inspect_db.py
+```
+
+В результате вы увидите поля вроде:
+
+- `id`;
+- `created_at`;
+- `client_id`;
+- `channel`;
+- `text`;
+- `category`;
+- `confidence`;
+- `escalate`;
+- `draft_reply`;
+- `error`.
 
 ## Ограничения MVP
 

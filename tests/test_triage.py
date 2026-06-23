@@ -45,6 +45,7 @@ def test_successful_triage_saves_audit(tmp_path) -> None:
         )
 
     assert response.status_code == 200
+    assert "\\u0412" in response.text
     body = response.json()
     assert body["category"] == "billing"
     assert body["confidence"] == "high"
@@ -148,4 +149,3 @@ def test_rate_limit_returns_429(tmp_path) -> None:
     assert read_ticket_count(settings.database_path) == 2
     tickets = fetch_recent_tickets(settings.database_path)
     assert tickets[0]["error"] == "rate_limit_exceeded"
-
