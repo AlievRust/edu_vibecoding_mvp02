@@ -1,0 +1,1 @@
+File for initial prompt with basic functionality and UI/UX description
